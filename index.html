@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Participaciones - 8vo A</title>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<style>
+  body{font-family:system-ui,-apple-system,sans-serif;margin:0;padding:16px;background:#f5f6f8;color:#1d2330;max-width:720px;margin-inline:auto}
+  h1{font-size:20px;margin:0 0 12px}
+  h2{font-size:17px;margin:0 0 8px}
+  h3{margin:0 0 8px;font-size:16px}
+  .card{background:#fff;border-radius:10px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  button{padding:10px 14px;border:0;border-radius:8px;background:#2563eb;color:#fff;font-size:15px;cursor:pointer}
+  button.sec{background:#e5e7eb;color:#111}
+  button.danger{background:#dc2626}
+  button.small{padding:6px 10px;font-size:13px}
+  input,textarea{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:15px;box-sizing:border-box}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  td,th{padding:8px;border-bottom:1px solid #eee;text-align:left}
+  .msg{padding:10px;border-radius:8px;margin-top:8px;font-size:15px}
+  .ok{background:#dcfce7}
+  .err{background:#fee2e2}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .hint{font-size:13px;color:#555}
+  .big{font-size:28px;font-weight:700;color:#2563eb}
+  .tabs{display:flex;gap:8px;margin-bottom:12px}
+  .tabs button{flex:1}
+  .hidden{display:none}
+  video{width:100%;max-height:320px;background:#000;border-radius:8px}
+  #printArea{display:flex;flex-wrap:wrap;gap:12px}
+  .qrItem{width:180px;text-align:center;border:1px solid #ddd;border-radius:8px;padding:8px;box-sizing:border-box}
+  .qrItem img{width:150px;height:150px}
+  @media print{
+    body *{visibility:hidden}
+    #printArea,#printArea *{visibility:visible}
+    #printArea{position:absolute;left:0;top:0;width:100%}
+    .qrItem{break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<h1>Participaciones - 8vo A</h1>
+
+<div class="tabs">
+  <button id="tabAlumno">Soy estudiante</button>
+  <button class="sec" id="tabDocente">Docente</button>
+</div>
+
+<!-- ============ ALUMNO ============ -->
+<section id="panelAlumno">
+  <div class="card" id="loginAlumno">
+    <h3>Ingresar</h3>
+    <input id="codigo" placeholder="Tu código" autocomplete="username" style="margin-bottom:8px">
+    <input id="pin" type="password" placeholder="PIN" autocomplete="current-password" inputmode="numeric" style="margin-bottom:8px">
+    <button id="btnLogin">Entrar</button>
+    <div id="msgAlumno"></div>
+  </div>
+
+  <div class="card hidden" id="perfilAlumno">
+    <h2 id="nombreAlumno"></h2>
+    <p class="hint" style="margin:0">Puntos disponibles para usar</p>
+    <div class="big" id="saldoAlumno"></div>
+    <h3 style="margin-top:14px">Historial</h3>
+    <table><thead><tr><th>Fecha</th><th>Tipo</th><th>Puntos</th></tr></thead><tbody id="histAlumno"></tbody></table>
+    <div class="row" style="margin-top:12px"><button class="sec" id="btnSalir">Salir</button></div>
+  </div>
+</section>
+
+<!-- ============ DOCENTE ============ -->
+<section id="panelDocente" class="hidden">
+  <div class="card">
+    <h3>Clave docente</h3>
+    <div class="row">
+      <input id="teacherKey" type="password" placeholder="Clave docente" style="flex:1">
+      <button id="btnGuardarClave">Guardar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Escanear QR</h3>
+    <div class="row" style="margin-bottom:8px">
+      <button id="btnCam">Activar cámara</button>
+      <button class="sec" id="btnCamStop">Detener</button>
+      <span id="statusCam" class="hint">Cámara apagada</span>
+    </div>
+    <video id="video" playsinline muted class="hidden"></video>
+    <canvas id="canvas" class="hidden"></canvas>
+    <div id="msgDocente"></div>
+    <p class="hint">Cada QR leído suma 0.50 puntos. El mismo QR no vuelve a sumar durante 3 segundos.</p>
+  </div>
+
+  <div class="card">
+    <h3>Estudiantes, saldos y QR</h3>
+    <div class="row" style="margin-bottom:8px">
+      <button id="btnGenerarQr">Generar QR faltantes</button>
+      <button class="sec" id="btnRefrescar">Actualizar</button>
+    </div>
+    <table>
+      <thead><tr><th>Código</th><th>Nombre</th><th>Saldo</th><th></th></tr></thead>
+      <tbody id="tbodyDocente"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Imprimir QR</h3>
+    <p class="hint">Pulsa "Preparar impresión" para armar la hoja con el QR y el nombre de cada estudiante.</p>
+    <div class="row" style="margin-bottom:8px">
+      <button id="btnPreparar">Preparar impresión</button>
+      <button class="sec" id="btnImprimir">Imprimir</button>
+    </div>
+    <div id="printArea"></div>
+  </div>
+
+  <div class="card">
+    <h3>Alta de estudiantes</h3>
+    <p class="hint">Una línea por estudiante: codigo;nombre;pin. Si el código ya existe, se actualiza el nombre y el PIN si se escribe uno.</p>
+    <textarea id="altaTexto" rows="6" placeholder="001;Ana Pérez;1234"></textarea>
+    <div class="row" style="margin-top:8px"><button id="btnAlta">Guardar estudiantes</button></div>
+  </div>
+</section>
+
+<script>
+// PEGA AQUÍ la URL de la aplicación web de Apps Script (termina en /exec)
+const API = 'https://script.google.com/macros/s/AKfycbxi9PaEfyjHKH5CfUuSI5sgEI_5rmCIJT1b1nrg_owYxbKpHzd02PeD_GR36idJNjKj/exec';
+
+async function api(body) {
+  const r = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+function $(id) { return document.getElementById(id); }
+function msg(id, text, ok) {
+  const m = $(id);
+  m.className = 'msg ' + (ok ? 'ok' : 'err');
+  m.textContent = text;
+}
+function fmt(n) { return Number(n || 0).toFixed(2).replace('.', ','); }
+
+// ---------- pestañas ----------
+function verPanel(p) {
+  $('panelAlumno').classList.toggle('hidden', p !== 'alumno');
+  $('panelDocente').classList.toggle('hidden', p !== 'docente');
+  $('tabAlumno').className = p === 'alumno' ? '' : 'sec';
+  $('tabDocente').className = p === 'docente' ? '' : 'sec';
+}
+$('tabAlumno').onclick = () => verPanel('alumno');
+$('tabDocente').onclick = () => { verPanel('docente'); if (clave()) cargarLista(); };
+
+// ---------- alumno ----------
+$('btnLogin').onclick = async () => {
+  const r = await api({ action: 'login', codigo: $('codigo').value.trim(), pin: $('pin').value.trim() });
+  if (!r.ok) { msg('msgAlumno', r.error || 'Error', false); return; }
+  $('msgAlumno').textContent = '';
+  $('loginAlumno').classList.add('hidden');
+  $('perfilAlumno').classList.remove('hidden');
+  $('nombreAlumno').textContent = r.nombre;
+  $('saldoAlumno').textContent = fmt(r.saldo) + ' pts';
+  const tb = $('histAlumno');
+  tb.innerHTML = '';
+  (r.historial || []).slice().reverse().forEach(h => {
+    const tr = document.createElement('tr');
+    [h.fecha, h.tipo === 'canje' ? 'Uso de puntos' : 'Participación', (h.puntos > 0 ? '+' : '') + fmt(h.puntos)]
+      .forEach(t => { const td = document.createElement('td'); td.textContent = t; tr.appendChild(td); });
+    tb.appendChild(tr);
+  });
+};
+$('btnSalir').onclick = () => {
+  $('pin').value = '';
+  $('perfilAlumno').classList.add('hidden');
+  $('loginAlumno').classList.remove('hidden');
+};
+
+// ---------- docente: clave y lista ----------
+function clave() { return sessionStorage.getItem('tk') || ''; }
+$('teacherKey').value = clave();
+$('btnGuardarClave').onclick = () => {
+  sessionStorage.setItem('tk', $('teacherKey').value.trim());
+  cargarLista();
+};
+
+async function cargarLista() {
+  if (!clave()) return;
+  const r = await api({ action: 'list', teacherKey: clave() });
+  if (!r.ok) { msg('msgDocente', r.error, false); return; }
+  window._estudiantes = r.estudiantes;
+  const tb = $('tbodyDocente');
+  tb.innerHTML = '';
+  r.estudiantes.forEach(e => {
+    const tr = document.createElement('tr');
+    const tdCod = document.createElement('td'); tdCod.textContent = e.codigo;
+    const tdNom = document.createElement('td'); tdNom.textContent = e.nombre;
+    const tdSal = document.createElement('td'); tdSal.textContent = fmt(e.saldo);
+    const tdBtn = document.createElement('td');
+    const bc = document.createElement('button');
+    bc.className = 'small danger';
+    bc.textContent = 'Canjear';
+    bc.onclick = () => canjear(e);
+    const bq = document.createElement('button');
+    bq.className = 'small sec';
+    bq.textContent = 'Nuevo QR';
+    bq.onclick = () => nuevoQr(e);
+    tdBtn.append(bc, ' ', bq);
+    tr.append(tdCod, tdNom, tdSal, tdBtn);
+    tb.appendChild(tr);
+  });
+}
+$('btnRefrescar').onclick = cargarLista;
+
+$('btnGenerarQr').onclick = async () => {
+  const r = await api({ action: 'qrs', teacherKey: clave() });
+  msg('msgDocente', r.ok ? 'QR generados para los estudiantes que no tenían.' : r.error, !!r.ok);
+  if (r.ok) window._estudiantes = r.estudiantes;
+  cargarLista();
+};
+
+async function nuevoQr(e) {
+  if (!confirm('¿Crear un QR nuevo para ' + e.nombre + '? El QR anterior dejará de funcionar.')) return;
+  const r = await api({ action: 'nuevoQr', teacherKey: clave(), codigo: e.codigo });
+  msg('msgDocente', r.ok ? 'QR nuevo creado para ' + e.nombre : r.error, !!r.ok);
+  cargarLista();
+}
+
+async function canjear(e) {
+  const p = prompt('Puntos que ' + e.nombre + ' utiliza (saldo: ' + fmt(e.saldo) + '):', '');
+  if (p === null) return;
+  const puntos = Number(String(p).replace(',', '.'));
+  if (!(puntos > 0)) { alert('Cantidad no válida'); return; }
+  const nota = prompt('Motivo o uso (opcional):', '') || '';
+  if (!confirm('¿Descontar ' + fmt(puntos) + ' pts a ' + e.nombre + '?')) return;
+  const r = await api({ action: 'canje', teacherKey: clave(), codigo: e.codigo, puntos, nota });
+  msg('msgDocente', r.ok ? 'Descontado. Nuevo saldo de ' + r.nombre + ': ' + fmt(r.saldo) : r.error, !!r.ok);
+  cargarLista();
+}
+
+// ---------- impresión de QR ----------
+$('btnPreparar').onclick = async () => {
+  if (!clave()) { msg('msgDocente', 'Primero guarda la clave docente.', false); return; }
+  const r = await api({ action: 'list', teacherKey: clave() });
+  if (!r.ok) { msg('msgDocente', r.error, false); return; }
+  const area = $('printArea');
+  area.innerHTML = '';
+  r.estudiantes.filter(e => e.qr).forEach(e => {
+    const qr = qrcode(0, 'M');
+    qr.addData(e.qr);
+    qr.make();
+    const item = document.createElement('div');
+    item.className = 'qrItem';
+    const img = document.createElement('img');
+    img.src = qr.createDataURL(4);
+    const nom = document.createElement('div');
+    nom.style.fontSize = '13px';
+    nom.textContent = e.nombre;
+    const cod = document.createElement('div');
+    cod.style.fontSize = '12px';
+    cod.style.color = '#555';
+    cod.textContent = 'Código ' + e.codigo;
+    item.append(img, nom, cod);
+    area.appendChild(item);
+  });
+  if (!area.children.length) msg('msgDocente', 'Primero pulsa "Generar QR faltantes".', false);
+};
+$('btnImprimir').onclick = () => window.print();
+
+// ---------- escaneo con cámara ----------
+let stream = null;
+let scanning = false;
+let lastSeen = {};
+let busy = false;
+const COOLDOWN = 3000;
+const video = $('video');
+const canvas = $('canvas');
+const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+$('btnCam').onclick = async () => {
+  if (!clave()) { msg('msgDocente', 'Primero guarda la clave docente.', false); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    msg('msgDocente', 'Este navegador no permite usar la cámara. Usa Chrome o Safari con HTTPS.', false);
+    return;
+  }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = stream;
+    video.classList.remove('hidden');
+    await video.play();
+    scanning = true;
+    $('statusCam').textContent = 'Cámara activa';
+    requestAnimationFrame(loopScan);
+  } catch (err) {
+    msg('msgDocente', 'No se pudo abrir la cámara: ' + err.message, false);
+  }
+};
+
+$('btnCamStop').onclick = () => {
+  scanning = false;
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = null;
+  video.classList.add('hidden');
+  $('statusCam').textContent = 'Cámara apagada';
+};
+
+function loopScan() {
+  if (!scanning) return;
+  if (video.readyState === video.HAVE_ENOUGH_DATA && !busy) {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+    if (code && code.data) onQR(code.data);
+  }
+  requestAnimationFrame(loopScan);
+}
+
+async function onQR(texto) {
+  const now = Date.now();
+  if (lastSeen[texto] && now - lastSeen[texto] < COOLDOWN) return;
+  lastSeen[texto] = now;
+  busy = true;
+  try {
+    const r = await api({ action: 'scan', teacherKey: clave(), tag: texto });
+    if (r.ok) {
+      msg('msgDocente', r.nombre + ': +0.5. Saldo ' + fmt(r.saldo), true);
+      cargarLista();
+    } else {
+      msg('msgDocente', r.error || 'Error', false);
+    }
+  } catch (err) {
+    msg('msgDocente', 'Sin conexión: ' + err.message, false);
+  } finally {
+    busy = false;
+  }
+}
+
+// ---------- alta ----------
+$('btnAlta').onclick = async () => {
+  const rows = $('altaTexto').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const [codigo, nombre, pin] = l.split(';').map(x => (x || '').trim());
+    return { codigo, nombre, pin };
+  });
+  if (!rows.length) return;
+  const r = await api({ action: 'alta', teacherKey: clave(), rows });
+  msg('msgDocente', r.ok ? 'Nuevos: ' + r.nuevos + '. Actualizados: ' + r.actualizados : r.error, !!r.ok);
+  if (r.ok) { $('altaTexto').value = ''; cargarLista(); }
+};
+
+if (clave()) cargarLista();
+</script>
+</body>
+</html>
